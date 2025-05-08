@@ -1,0 +1,470 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Brainfuck Compiler</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #f5f7fa;
+      --card: #ffffff;
+      --primary: #4f46e5;
+      --primary-light: #6366f1;
+      --text: #374151;
+      --border: #e5e7eb;
+      --highlight: #e0e7ff;
+      --fade: rgba(0, 0, 0, 0.1);
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Inter', sans-serif; background: var(--bg); color: var(--text); }
+    .container { max-width: 1100px; margin: 2rem auto; padding: 1rem; }
+    h1 { text-align: center; margin-bottom: 1.5rem; font-size: 2rem; font-weight: 700; }
+    .card { background: var(--card); border: 1px solid var(--border); border-radius: 0.5rem; padding: 1.5rem; box-shadow: 0 2px 4px rgba(0,0,0,0.05); margin-bottom: 1.5rem; }
+    label { display: block; margin-bottom: 0.5rem; font-weight: 600; }
+    textarea, input[type="text"] {
+      width: 100%; padding: 0.75rem; border: 1px solid var(--border); border-radius: 0.375rem; font-family: monospace; font-size: 0.9rem; margin-bottom: 1rem;
+    }
+    textarea { resize: vertical; height: 200px; }
+    .btn {
+      display: inline-block; padding: 0.75rem 1.5rem; background: var(--primary); color: #fff; text-decoration: none;
+      border: none; border-radius: 0.375rem; font-weight: 600; cursor: pointer;
+      transition: background 0.2s ease;
+    }
+    .btn:hover:not([disabled]) { background: var(--primary-light); }
+    .btn-stop {
+      background: #ef4444; color: #fff; font-weight: 600; cursor: pointer;
+      transition: background 0.2s ease;
+      padding: 0.75rem 1.5rem; border: none; border-radius: 0.375rem;
+      display: inline-block; text-decoration: none;
+    }
+    .btn-stop:hover:not([disabled]) { background: #dc2626; }
+    .btn[disabled] { opacity: 0.6; cursor: not-allowed; }
+    .spinner {
+      border: 2px solid #f3f3f3;
+      border-top: 2px solid #fff;
+      border-radius: 50%;
+      width: 14px;
+      height: 14px;
+      display: inline-block;
+      vertical-align: middle;
+      margin-right: 0.5rem;
+      animation: spin 1s linear infinite;
+    }
+    .spinner::before,
+    .spinner::after {
+      content: "";
+      box-sizing: border-box;
+      position: absolute;
+      inset: 0;
+      border-radius: 50%;
+    }
+    .spinner::before {
+      border: 4px solid rgba(0,0,0,0.1);
+    }
+    .spinner::after {
+      border: 4px solid transparent;
+      border-top-color: #3498db;
+      border-right-color: #8e44ad;
+      box-shadow: 0 0 8px rgba(52, 152, 219, 0.6),
+                  0 0 8px rgba(142, 68, 173, 0.6) inset;
+      animation: spin 1s cubic-bezier(0.68, -0.55, 0.27, 1.55) infinite;
+    }
+    @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    .flex { display: flex; gap: 1rem; }
+    .flex > div { flex: 1; }
+    #output, #last_state { background: #1e293b; color: #d1d5db; height: 150px; overflow-y: auto; font-family: monospace; }
+    .drop-zone {
+      position: relative;
+      padding: 1rem;
+      border: 2px dashed var(--border);
+      border-radius: 0.375rem;
+      transition: background 0.2s ease, border-color 0.2s ease;
+      text-align: center;
+    }
+    .drop-zone.active {
+      background: var(--highlight);
+      border-color: var(--primary);
+    }
+    .drop-zone input {
+      position: absolute;
+      top: 0; left: 0; width: 100%; height: 100%; opacity: 0;
+      cursor: pointer;
+    }
+    .author {
+      text-align: center;
+      font-size: 0.8rem;
+      color: var(--text);
+      margin-top: 1rem;
+      line-height: 1.5rem;
+    }
+    .styled-select {
+      padding: 0.75rem;
+      border: 1px solid var(--border);
+      border-radius: 0.375rem;
+      background-color: var(--card);
+      color: var(--text);
+      font-family: 'Inter', sans-serif;
+      font-size: 0.9rem;
+      appearance: none;
+      background-image: url("data:image/svg+xml;utf8,<svg fill='%23374151' height='20' viewBox='0 0 24 24' width='20' xmlns='http://www.w3.org/2000/svg'><path d='M7 10l5 5 5-5z'/></svg>");
+      background-repeat: no-repeat;
+      background-position: right 0.75rem center;
+      background-size: 1rem;
+      padding-right: 2rem;
+      padding-left: 1rem;
+    }
+
+    .styled-select:focus {
+      outline: none;
+      border-color: var(--primary);
+      box-shadow: 0 0 0 2px rgba(79, 70, 229, 0.2);
+    }
+    .align-center {
+      display: flex;
+      align-items: center;
+    }
+    @media screen and (max-width: 768px) {
+      .flex { flex-direction: column; }
+      .flex > div { width: 100%; }
+      .align-center {
+        align-items: normal;
+      }
+      .styled-select {
+        width: 100%;
+        max-width: 500px !important;
+      }
+    }
+
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Brainfuck Compiler for M&M</h1>
+    <form id="bf-form" class="card">
+      <div class="flex">
+        <div>
+          <label for="code">Code</label>
+          <textarea id="code" placeholder="Enter Brainfuck code..."></textarea>
+          <div id="code-drop" class="drop-zone">
+            <p id="code-drop-text">Drag & drop code file here or click to select</p>
+            <input type="file" id="code-file" accept=".bf, .in, .txt">
+          </div>
+        </div>
+        <div>
+          <label for="input">Input</label>
+          <textarea id="input" placeholder="Program input..."></textarea>
+          <div id="input-drop" class="drop-zone">
+            <p id="input-drop-text">Drag & drop input file here or click to select</p>
+            <input type="file" id="input-file" accept=".txt, .in">
+          </div>
+        </div>
+      </div>
+      <div class="flex align-center" style="margin-top: 1rem; flex-wrap: wrap; gap: 1rem;">
+        <select id="speed" class="styled-select">
+          <option value="slllooow">pretty, pretty slow</option>
+          <option value="med">medium</option>
+          <option value="fast" selected>blazingly fast</option>
+        </select>
+        <button type="button" id="run-btn" class="btn">Run</button>
+        <button type="button" id="stop-btn" class="btn-stop" style="display: none;">Stop</button>
+      </div>
+    </form>
+
+    <div class="card">
+      <label for="output">Output</label>
+      <pre id="output"></pre>
+    </div>
+
+    <div class="card">
+      <label for="last_state">State</label>
+      <pre id="last_state"></pre>
+    </div>
+    <div class="author">Created by TicVac 2025<br>vaclav.tichy.mam@gmail.com</div>
+  </div>
+
+  <script>
+    let abortSignal = false;
+    const outElement = document.getElementById('output');
+    const lastStateElement = document.getElementById('last_state');
+    const speedSelect = document.getElementById('speed');
+
+    class Interpreter {
+      constructor({ commandsPerSecond = 1_000_000_000, debug = false} = {}) {
+        this.debug = debug;
+        this.commands = ['+', '-', '>', '<', '.', ',', '[', ']'];
+        this.mp = 0; // memory pointer
+        this.pc = 0; // program counter
+        this.data = [0, 0];
+        this.dataEnd = [0, 0]; // tail reversed
+        this.isAtEnd = false;
+        this.code = "";
+        this.commandsPerSecond = commandsPerSecond;
+        this.MAX = 2 ** 32 - 1;
+
+        this.userInput = "";
+        this.userInputIndex = 0;
+        this.savedOutput = "";
+        this.steps = 0;
+      }
+
+      ourI32(value) {
+        if (value === -1) return this.MAX;
+        if (value === this.MAX + 1) return 0;
+        return value;
+      }
+
+      loadCodeFromString(code) {
+        const expandNumbers = (match, count, char) => {
+            return char.repeat(parseInt(count, 10));
+        };
+        let cleaned = code.trim();
+        cleaned = cleaned.replace(/(\d+)(.)/g, expandNumbers);
+        cleaned = cleaned.split('').filter(c => this.commands.includes(c)).join('');
+        this.code = cleaned;
+      }
+
+      getValueAtMp() {
+        if (!this.isAtEnd) {
+            return this.data[this.mp];
+        } else {
+            return this.dataEnd[this.MAX - this.mp];
+        }
+      }
+
+      setValueAtMp(value) {
+        if (!this.isAtEnd) {
+            this.data[this.mp] = value;
+        } else {
+            this.dataEnd[this.MAX - this.mp] = value;
+        }
+      }
+
+      handlePlus() {
+          this.setValueAtMp(this.ourI32(this.getValueAtMp() + 1));
+      }
+
+      handleMinus() {
+          this.setValueAtMp(this.ourI32(this.getValueAtMp() - 1));
+      }
+
+      handleGreater() {
+        const temp = this.mp;
+        this.mp = this.ourI32(this.mp + 1);
+        if (this.mp > this.MAX - this.dataEnd.length) {
+            this.isAtEnd = true;
+            return;
+        }
+        if (temp > this.mp) {
+            this.isAtEnd = false;
+        }
+        if (this.mp >= this.data.length) {
+            this.data = this.data.concat(new Array(this.data.length).fill(0));
+        }
+      }
+
+      handleLess() {
+        const temp = this.mp;
+        this.mp = this.ourI32(this.mp - 1);
+        if (this.mp < this.data.length) {
+            this.isAtEnd = false;
+            return;
+        }
+        if (temp < this.mp) {
+            this.isAtEnd = true;
+        }
+        if (this.MAX - this.mp >= this.dataEnd.length) {
+            this.dataEnd = this.dataEnd.concat(new Array(this.dataEnd.length).fill(0));
+        }
+      }
+
+      handleDot() {
+        const ch = String.fromCharCode(this.getValueAtMp());
+        this.savedOutput += ch;
+      }
+
+      handleComma() {
+        let inputChar;
+        if (this.commaStandardInput) {
+            // Standard input ignored in this variant
+            inputChar = null;
+        } else {
+            if (this.userInputIndex < this.userInput.length) {
+                inputChar = this.userInput[this.userInputIndex++];
+            } else {
+                inputChar = null;
+            }
+        }
+        if (!inputChar) {
+            this.setValueAtMp(0);
+        } else {
+            this.setValueAtMp(inputChar.charCodeAt(0));
+        }
+      }
+
+      handleLeftBracket() {
+        if (this.getValueAtMp() === 0) {
+            let openBrackets = 1;
+            while (openBrackets > 0) {
+                this.pc++;
+                if (this.pc >= this.code.length) {
+                    throw new SyntaxError('Unmatched "["');
+                }
+                if (this.code[this.pc] === '[') openBrackets++;
+                if (this.code[this.pc] === ']') openBrackets--;
+            }
+        }
+      }
+
+      handleRightBracket() {
+        if (this.getValueAtMp() !== 0) {
+            let closeBrackets = 1;
+            while (closeBrackets > 0) {
+                this.pc--;
+                if (this.pc < 0) {
+                    throw new SyntaxError('Unmatched "]"');
+                }
+                if (this.code[this.pc] === ']') closeBrackets++;
+                if (this.code[this.pc] === '[') closeBrackets--;
+            }
+        }
+      }
+
+      getState() {
+        const dataMain = this.data.join(' ');
+        const dataTail = [...this.dataEnd].reverse().join(' ');
+        return `step: ${this.steps} mp: ${this.mp} | ${dataMain} | end: | ${dataTail} |`;
+      }
+
+      async execute({ codeString, userInput = '', callback } = {}) {
+        let waitTime = 0;
+        let breath = 0;
+        const speed = speedSelect.value;
+        if (speed === 'slllooow') {
+          this.commandsPerSecond = 1;
+          waitTime = 1 / this.commandsPerSecond;
+          breath = 1;
+        } else if (speed === 'med') {
+          this.commandsPerSecond = 10;
+          waitTime = 1 / this.commandsPerSecond;
+          breath = 1
+        } else if (speed === 'fast') {
+          this.commandsPerSecond = 1_000_000_000_000;
+          waitTime = 0;
+          breath = 100000;
+        }
+
+        this.loadCodeFromString(codeString);
+        this.userInput = userInput;
+        let steps = 0;
+        while (this.pc < this.code.length) {
+          if (abortSignal) {
+              console.log("Execution aborted");
+              this.savedOutput = "Execution aborted";
+              break;
+            }
+            const com = this.code[this.pc];
+            switch (com) {
+                case '+': this.handlePlus(); break;
+                case '-': this.handleMinus(); break;
+                case '>': this.handleGreater(); break;
+                case '<': this.handleLess(); break;
+                case '.': this.handleDot(); break;
+                case ',': this.handleComma(); break;
+                case '[': this.handleLeftBracket(); break;
+                case ']': this.handleRightBracket(); break;
+            }
+            this.pc++;
+            steps++;
+            this.steps = steps;
+            outElement.textContent = this.savedOutput;
+            lastStateElement.textContent = this.getState();
+            // auto-scroll to the bottom
+            outElement.scrollTop = outElement.scrollHeight;
+            lastStateElement.scrollTop = lastStateElement.scrollHeight;
+            if (steps % breath === 0) {
+              await new Promise(resolve => setTimeout(resolve, waitTime * 1000));
+            }
+        }
+        callback(this.savedOutput, this.getState());
+        return this.savedOutput;
+      }
+    }
+
+    const stopBtn = document.getElementById('stop-btn');
+
+    // Setup drop zones with filename display
+    function setupDropZone(dropZoneId, textareaId, textId) {
+      const dropZone = document.getElementById(dropZoneId);
+      const fileInput = dropZone.querySelector('input');
+      const textarea = document.getElementById(textareaId);
+      const dropText = document.getElementById(textId);
+
+      ['dragenter', 'dragover'].forEach(evt => {
+        dropZone.addEventListener(evt, e => {
+          e.preventDefault(); dropZone.classList.add('active');
+        });
+      });
+      ['dragleave', 'drop'].forEach(evt => {
+        dropZone.addEventListener(evt, e => {
+          e.preventDefault(); dropZone.classList.remove('active');
+        });
+      });
+      dropZone.addEventListener('drop', e => {
+        const file = e.dataTransfer.files[0];
+        if (!file) return;
+        dropText.textContent = file.name;
+        const reader = new FileReader();
+        reader.onload = () => textarea.value = reader.result;
+        reader.readAsText(file);
+      });
+      fileInput.addEventListener('change', e => {
+        const file = e.target.files[0]; if (!file) return;
+        dropText.textContent = file.name;
+        const reader = new FileReader();
+        reader.onload = () => textarea.value = reader.result;
+        reader.readAsText(file);
+      });
+    }
+
+    setupDropZone('code-drop', 'code', 'code-drop-text');
+    setupDropZone('input-drop', 'input', 'input-drop-text');
+
+    function random_js(out, state) {
+      console.log("random_js");
+      const btn = document.getElementById('run-btn');
+      btn.removeChild(btn.firstChild);
+      document.getElementById('output').textContent = out;
+      document.getElementById('last_state').textContent = state;
+      btn.disabled = false;
+      stopBtn.style.display = 'none';
+    }
+
+    // Run button handler with spinner prepend
+    document.getElementById('run-btn').addEventListener('click', () => {
+      const btn = document.getElementById('run-btn');
+      const code = document.getElementById('code').value;
+      const input = document.getElementById('input').value;
+      if (btn.disabled) return;
+
+      outElement.textContent = "";
+      lastStateElement.textContent = "";
+      abortSignal = false;
+      stopBtn.style.display = 'inline-block';
+      btn.disabled = true;
+      const spinner = document.createElement('div'); spinner.className = 'spinner';
+      btn.insertBefore(spinner, btn.firstChild);
+
+      // execution start
+      const interpreter = new Interpreter({ commandsPerSecond: 1_000_000_000, debug: false });
+      let out = interpreter.execute({ codeString: code, userInput: input, callback: random_js });
+    });
+
+    stopBtn.addEventListener('click', () => {
+      console.log("Stop button clicked");
+      abortSignal = true;
+    });
+  </script>
+</body>
+</html>
+
