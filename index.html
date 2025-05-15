@@ -201,7 +201,7 @@
         this.isAtEnd = false;
         this.code = "";
         this.commandsPerSecond = commandsPerSecond;
-        this.MAX = 2 ** 32 - 1;
+        this.MAX = 2 ** 24 - 1;
 
         this.userInput = "";
         this.userInputIndex = 0;
@@ -209,7 +209,7 @@
         this.steps = 0;
       }
 
-      ourI32(value) {
+      ourI24(value) {
         if (value === -1) return this.MAX;
         if (value === this.MAX + 1) return 0;
         return value;
@@ -242,16 +242,16 @@
       }
 
       handlePlus() {
-          this.setValueAtMp(this.ourI32(this.getValueAtMp() + 1));
+          this.setValueAtMp(this.ourI24(this.getValueAtMp() + 1));
       }
 
       handleMinus() {
-          this.setValueAtMp(this.ourI32(this.getValueAtMp() - 1));
+          this.setValueAtMp(this.ourI24(this.getValueAtMp() - 1));
       }
 
       handleGreater() {
         const temp = this.mp;
-        this.mp = this.ourI32(this.mp + 1);
+        this.mp = this.ourI24(this.mp + 1);
         if (this.mp > this.MAX - this.dataEnd.length) {
             this.isAtEnd = true;
             return;
@@ -266,7 +266,7 @@
 
       handleLess() {
         const temp = this.mp;
-        this.mp = this.ourI32(this.mp - 1);
+        this.mp = this.ourI24(this.mp - 1);
         if (this.mp < this.data.length) {
             this.isAtEnd = false;
             return;
