@@ -334,7 +334,7 @@
       getState() {
         const dataMain = this.data.join(' ');
         const dataTail = [...this.dataEnd].reverse().join(' ');
-        return `step: ${this.steps} mp: ${this.mp} | ${dataMain} | end: | ${dataTail} |`;
+        return `step: ${this.steps} ptr: ${this.mp} | ${dataMain} | end: | ${dataTail} |`;
       }
 
       async execute({ codeString, userInput = '', callback } = {}) {
