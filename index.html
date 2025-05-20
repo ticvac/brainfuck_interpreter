@@ -220,13 +220,18 @@
       }
 
       loadCodeFromString(code) {
+        // for every line remove everything after "//"
+        code = code.split('\n').map(line => line.split('//')[0]).join('\n');
         const expandNumbers = (match, count, char) => {
             return char.repeat(parseInt(count, 10));
         };
         let cleaned = code.trim();
         cleaned = cleaned.replace(/(\d+)(.)/g, expandNumbers);
         cleaned = cleaned.split('').filter(c => this.commands.includes(c)).join('');
+        // remove everython on line after "//"
         this.code = cleaned;
+        console.log("Code loaded: ", this.code);
+        console.log("Code length: ", this.code.length); 
       }
 
       getValueAtMp() {
@@ -336,7 +341,6 @@
       }
 
       async handleHashtag()  {
-        console.log("hashtag");
         this.totalTime += performance.now() - this.start;
         await new Promise(resolve => setTimeout(resolve, this.waitTime * 1000));
         this.start = performance.now();
@@ -345,6 +349,7 @@
       getState() {
         let values = []
         let old_mp = this.mp;
+        let old_is_at_end = this.isAtEnd;
         this.handleLess();
         this.handleLess();
         for (let i = 0; i < 5; i++) {
@@ -352,18 +357,14 @@
           this.handleGreater();
         }
         this.mp = old_mp
+        this.isAtEnd = old_is_at_end;
         const dataMain = values.join(' ')
         const dataOnlyFromFirstTwo = values.slice(0, 2).join(' ')
-        console.log(dataOnlyFromFirstTwo)
         let sss = `steps: ${this.steps} ptr: ${this.mp} ` + "[... "
         const sss_old_length = sss.length
         sss += dataMain + " ...]"
         sss += "\n" + " ".padEnd(sss_old_length + dataOnlyFromFirstTwo.length + 1) + "^"
         return sss
-
-        // const dataMain = this.data.join(' ');
-        // const dataTail = [...this.dataEnd].reverse().join(' ');
-        // return `step: ${this.steps} ptr: ${this.mp} | ${dataMain} | end: | ${dataTail} |`;
       }
 
       async execute({ codeString, userInput = '', callback } = {}) {
@@ -426,6 +427,8 @@
               await new Promise(resolve => setTimeout(resolve, this.waitTime * 1000));
               this.start = performance.now();
             }
+            console.log(this.data)
+            console.log(this.dataEnd)
         }
         this.totalTime += performance.now() - this.start;
         callback(this.savedOutput, this.getState());
