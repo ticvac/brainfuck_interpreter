@@ -196,12 +196,11 @@
         this.commands = ['+', '-', '>', '<', '.', ',', '[', ']', '#'];
         this.mp = 0; // memory pointer
         this.pc = 0; // program counter
-        this.data = [0, 0, 0, 0];
-        this.dataEnd = [0, 0, 0, 0]; // tail reversed
-        this.isAtEnd = false;
+        this.MOD = 2**24;
+        this.data = new Array(this.MOD).fill(0);
         this.code = "";
+        this.bracket_jumps = [];
         this.commandsPerSecond = commandsPerSecond;
-        this.MAX = 2 ** 24 - 1;
 
         this.userInput = "";
         this.userInputIndex = 0;
@@ -214,9 +213,7 @@
       }
 
       ourI24(value) {
-        if (value === -1) return this.MAX;
-        if (value === this.MAX + 1) return 0;
-        return value;
+        return (value + this.MOD) % this.MOD;
       }
 
       loadCodeFromString(code) {
@@ -231,23 +228,35 @@
         // remove everython on line after "//"
         this.code = cleaned;
         console.log("Code loaded: ", this.code);
-        console.log("Code length: ", this.code.length); 
+        console.log("Code length: ", this.code.length);
+        this.bracket_jumps = new Array(this.code.length).fill(-1);
+
+        // match []
+        let open_bracket_positions = [];
+        for (let i = 0; i < this.code.length; i++){
+          if (this.code[i] == '['){
+            open_bracket_positions.push(i);
+          }
+          if (this.code[i] == ']'){
+          	if (open_bracket_positions.length == 0){
+          	  throw new SyntaxError("Extra ']'!");
+          	}
+          	let opening_bracket = open_bracket_positions.pop();
+          	this.bracket_jumps[opening_bracket] = i;
+          	this.bracket_jumps[i] = opening_bracket;
+          }
+        }
+        if (open_bracket_positions.length > 0){
+        	throw new SyntaxError("Missing ']'!");
+        }
       }
 
       getValueAtMp() {
-        if (!this.isAtEnd) {
-            return this.data[this.mp];
-        } else {
-            return this.dataEnd[this.MAX - this.mp];
-        }
+      	return this.data[this.mp];
       }
 
       setValueAtMp(value) {
-        if (!this.isAtEnd) {
-            this.data[this.mp] = value;
-        } else {
-            this.dataEnd[this.MAX - this.mp] = value;
-        }
+      	this.data[this.mp] = value;
       }
 
       handlePlus() {
@@ -259,33 +268,11 @@
       }
 
       handleGreater() {
-        const temp = this.mp;
         this.mp = this.ourI24(this.mp + 1);
-        if (this.mp > this.MAX - this.dataEnd.length) {
-            this.isAtEnd = true;
-            return;
-        }
-        if (temp > this.mp) {
-            this.isAtEnd = false;
-        }
-        if (this.mp >= this.data.length) {
-            this.data = this.data.concat(new Array(this.data.length).fill(0));
-        }
       }
 
       handleLess() {
-        const temp = this.mp;
         this.mp = this.ourI24(this.mp - 1);
-        if (this.mp < this.data.length) {
-            this.isAtEnd = false;
-            return;
-        }
-        if (temp < this.mp) {
-            this.isAtEnd = true;
-        }
-        if (this.MAX - this.mp >= this.dataEnd.length) {
-            this.dataEnd = this.dataEnd.concat(new Array(this.dataEnd.length).fill(0));
-        }
       }
 
       handleDot() {
@@ -314,29 +301,13 @@
 
       handleLeftBracket() {
         if (this.getValueAtMp() === 0) {
-            let openBrackets = 1;
-            while (openBrackets > 0) {
-                this.pc++;
-                if (this.pc >= this.code.length) {
-                    throw new SyntaxError('Unmatched "["');
-                }
-                if (this.code[this.pc] === '[') openBrackets++;
-                if (this.code[this.pc] === ']') openBrackets--;
-            }
+	      this.pc = this.bracket_jumps[this.pc];
         }
       }
 
       handleRightBracket() {
         if (this.getValueAtMp() !== 0) {
-            let closeBrackets = 1;
-            while (closeBrackets > 0) {
-                this.pc--;
-                if (this.pc < 0) {
-                    throw new SyntaxError('Unmatched "]"');
-                }
-                if (this.code[this.pc] === ']') closeBrackets++;
-                if (this.code[this.pc] === '[') closeBrackets--;
-            }
+		  this.pc = this.bracket_jumps[this.pc];
         }
       }
 
@@ -348,16 +319,9 @@
 
       getState() {
         let values = []
-        let old_mp = this.mp;
-        let old_is_at_end = this.isAtEnd;
-        this.handleLess();
-        this.handleLess();
-        for (let i = 0; i < 5; i++) {
-          values.push(this.getValueAtMp())
-          this.handleGreater();
+        for (let i = -2; i <= 2; i++) {
+          values.push(this.data[this.ourI24(this.mp + i)]);
         }
-        this.mp = old_mp
-        this.isAtEnd = old_is_at_end;
         const dataMain = values.join(' ')
         const dataOnlyFromFirstTwo = values.slice(0, 2).join(' ')
         let sss = `steps: ${this.steps} ptr: ${this.mp} ` + "[... "
@@ -388,7 +352,7 @@
           this.commandsPerSecond = 1_000_000_000_000;
           this.waitTime = 0;
           // breath = 100000;
-          breath = 1000;
+          breath = 1000000;
         }
 
         this.loadCodeFromString(codeString);
@@ -417,18 +381,20 @@
             this.pc++;
             steps++;
             this.steps = steps;
-            outElement.textContent = this.savedOutput;
-            lastStateElement.textContent = this.getState();
-            // auto-scroll to the bottom
-            outElement.scrollTop = outElement.scrollHeight;
-            lastStateElement.scrollTop = lastStateElement.scrollHeight;
             if (steps % breath === 0) {
+              outElement.textContent = this.savedOutput;
+              lastStateElement.textContent = this.getState();
+              // auto-scroll to the bottom
+              outElement.scrollTop = outElement.scrollHeight;
+              lastStateElement.scrollTop = lastStateElement.scrollHeight;
               this.totalTime += performance.now() - this.start;
               await new Promise(resolve => setTimeout(resolve, this.waitTime * 1000));
               this.start = performance.now();
             }
-            console.log(this.data)
-            console.log(this.dataEnd)
+            if (this.debug){
+              console.log(this.data);
+              console.log(this.dataEnd);
+            }
         }
         this.totalTime += performance.now() - this.start;
         callback(this.savedOutput, this.getState());
