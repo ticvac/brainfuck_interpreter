@@ -22,17 +22,10 @@
     h1 { text-align: center; margin-bottom: 1.5rem; font-size: 2rem; font-weight: 700; }
     .card { background: var(--card); border: 1px solid var(--border); border-radius: 0.5rem; padding: 1.5rem; box-shadow: 0 2px 4px rgba(0,0,0,0.05); margin-bottom: 1.5rem; }
     label { display: block; margin-bottom: 0.5rem; font-weight: 600; }
-    textarea, input[type="text"] {
+    textarea, input[type="text"], input[type="number"] {
       width: 100%; padding: 0.75rem; border: 1px solid var(--border); border-radius: 0.375rem; font-family: monospace; font-size: 0.9rem; margin-bottom: 1rem;
     }
     textarea { resize: vertical; height: 200px; }
-    
-    .prevLenIn {
-      display: inline-block;
-      resize: none; overflow:hidden;
-      width:50px; height:40px;
-    }
-
     .btn {
       display: inline-block; padding: 0.75rem 1.5rem; background: var(--primary); color: #fff; text-decoration: none;
       border: none; border-radius: 0.375rem; font-weight: 600; cursor: pointer;
@@ -121,7 +114,6 @@
       padding-right: 2rem;
       padding-left: 1rem;
     }
-
     .styled-select:focus {
       outline: none;
       border-color: var(--primary);
@@ -167,18 +159,30 @@
           </div>
         </div>
       </div>
-      <div class="flex align-center" style="margin-top: 1rem; flex-wrap: wrap; gap: 1rem;">
-        <select id="speed" class="styled-select">
-          <option value="slllooow">pretty, pretty slow</option>
-          <option value="med">medium</option>
-          <!-- <option value="reason" selected>reasonable fast</option> -->
-          <option value="fast" selected>blazingly fast</option>
-        </select>
-        <button type="button" id="run-btn" class="btn">Run</button>
-        <button type="button" id="stop-btn" class="btn-stop" style="display: none;">Stop</button>
 
-	
-
+      <div class="flex" style="margin-top: 3em;">
+        <div>
+          <label>State preview length </label>
+          State preview lenght before and after pointer.
+          <div style="margin-top: 1rem; flex-wrap: wrap; gap: 1rem;">
+            <input type="number" id="prevLenBP" value="2" min="1" style="max-width: 60px;">
+            <input type="number" id="prevLenAP" value="2" min="1" style="max-width: 60px;">
+          </div>
+        </div>
+        <div>
+          <label>Run</label>
+          <div class="flex align-center" style="margin-top: 1rem; flex-wrap: wrap; gap: 1rem;">
+            <select id="speed" class="styled-select">
+              <option value="slllooow">pretty, pretty slow</option>
+              <option value="med">medium</option>
+              <!-- <option value="reason" selected>reasonable fast</option> -->
+              <option value="fast" selected>blazingly fast</option>
+            </select>
+            <button type="button" id="run-btn" class="btn">Run</button>
+            <button type="button" id="stop-btn" class="btn-stop" style="display: none;">Stop</button>
+          </div>
+        </div>
+        
       </div>
     </form>
     
@@ -193,15 +197,15 @@
       <pre id="last_state"></pre>
     </div>
 
-    <div class="card">
-	<label>State preview length </label>
-	State preview lenght before and after pointer.
-	<div style="margin-top: 1rem; flex-wrap: wrap; gap: 1rem;">
-	<textarea class ="prevLenIn" id="prevLenBP">2</textarea>
-	<textarea class ="prevLenIn" id="prevLenAP">2</textarea>
-	</div>
+
+    <div class="author">
+      Created by TicVac 2025
+      <br>
+      <a href="mailto:vaclav.tichy.mam@gmail.com">vaclav.tichy.mam@gmail.com</a>
+      <br><br>Contributors:
+      <br>Doc.MM Michael Jarvis
+      <br>Mgr.MM František Nouza
     </div>
-    <div class="author">Created by TicVac 2025<br>vaclav.tichy.mam@gmail.com</div>
   </div>
 
   <script>
@@ -230,6 +234,8 @@
         this.totalTime = 0;
         this.start = performance.now();
         this.waitTime = 0;
+        this.numberOfDisplayedAfter = 2;
+        this.numberOfDisplayedBefore = 2;
       }
 
       ourI24(value) {
@@ -339,11 +345,11 @@
 
       getState() {
         let values = []
-        for (let i = -parseInt(prevLenBP.value); i <= parseInt(prevLenAP.value); i++) {
+        for (let i = -parseInt(this.numberOfDisplayedBefore); i <= parseInt(this.numberOfDisplayedAfter); i++) {
           values.push(this.data[this.ourI24(this.mp + i)]);
         }
         const dataMain = values.join(' ')
-        const dataOnlyFromFirstTwo = values.slice(0, parseInt(prevLenBP.value)).join(' ')
+        const dataOnlyFromFirstTwo = values.slice(0, parseInt(this.numberOfDisplayedBefore)).join(' ')
         let sss = `steps: ${this.steps} ptr: ${this.mp} ` + "[... "
         const sss_old_length = sss.length
         sss += dataMain + " ...]"
@@ -352,6 +358,18 @@
       }
 
       async execute({ codeString, userInput = '', callback } = {}) {
+        // setting before and after window size
+        let lenBefore = parseInt(document.getElementById('prevLenBP').value);
+        let lenAfter = parseInt(document.getElementById('prevLenAP').value);
+        if (isNaN(lenBefore)) { lenBefore = 1; }
+        if (isNaN(lenAfter)) { lenAfter = 1; }
+        lenBefore = Math.max(lenBefore, 1);
+        lenAfter = Math.max(lenAfter, 1);
+        this.numberOfDisplayedAfter = lenAfter;
+        this.numberOfDisplayedBefore = lenBefore;
+        document.getElementById('prevLenAP').value = lenAfter;
+        document.getElementById('prevLenBP').value = lenBefore;
+
         await new Promise(resolve => setTimeout(resolve, 0));
         this.waitTime = 0;
         let breath = 0;
@@ -477,8 +495,6 @@
       const btn = document.getElementById('run-btn');
       const code = document.getElementById('code').value;
       const input = document.getElementById('input').value;
-      const prevLenBP = document.getElementById('prevLenBP').value;
-      const prevLenAP = document.getElementById('prevLenAP').value;
       if (btn.disabled) return;
 
       outElement.textContent = "";
