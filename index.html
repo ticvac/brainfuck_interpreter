@@ -401,7 +401,7 @@
         while (this.pc < this.code.length) {
           if (abortSignal) {
               console.log("Execution aborted");
-              this.savedOutput = "Execution aborted";
+              this.savedOutput += "\n\nExecution aborted";
               break;
             }
             const com = this.code[this.pc];
